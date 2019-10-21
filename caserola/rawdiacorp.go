@@ -4,17 +4,15 @@ import "net/http"
 
 type Rawdiacorp struct{}
 
-var config = RestaurantConfig{
-	ID:                   "rawdiacorp",
-	URL:                  "https://corporate.caserola.ro/restaurant/rawdiacorp",
-	AppeteazersSectionID: 512,
-	MainsSectionID:       513,
-	DesertsSectionID:     515,
-}
-
 func (*Rawdiacorp) FeedMenu(cookies []*http.Cookie) (*Menu, error) {
+	config := RestaurantConfig{
+		URL:                  "https://corporate.caserola.ro/restaurant/rawdiacorp",
+		AppeteazersSectionID: []int64{512},
+		MainsSectionID:       []int64{513},
+		DesertsSectionID:     []int64{515},
+	}
 	return defaultCrawler(config)(cookies)
 }
 func (*Rawdiacorp) MakeLunch(menu *Menu) []*Product {
-	return defaultMakeLunch(menu)
+	return MakeLunchByRandom(menu)
 }

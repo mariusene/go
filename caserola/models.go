@@ -8,7 +8,9 @@ import "time"
 type Config struct {
 	Email      string `json:"email"`
 	Pwd        string `json:"pwd"`
-	Restaurant string `json:"restaurant`
+	Restaurant string `json:"restaurant"`
+	UtcH       int    `json:"utcH"`
+	UtcM       int    `json:"utcT"`
 }
 
 type OrderFeed struct {
@@ -34,11 +36,10 @@ type Menu struct {
 }
 
 type RestaurantConfig struct {
-	ID                   string
 	URL                  string
-	AppeteazersSectionID int64
-	MainsSectionID       int64
-	DesertsSectionID     int64
+	AppeteazersSectionID []int64
+	MainsSectionID       []int64
+	DesertsSectionID     []int64
 }
 
 //!-

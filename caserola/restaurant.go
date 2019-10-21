@@ -11,7 +11,7 @@ type Restaurant interface {
 	MakeLunch(*Menu) []*Product
 }
 
-func Shuffle(a []*Product) []*Product {
+func shuffle(a []*Product) []*Product {
 	swap := func(i, j int) {
 		a[i], a[j] = a[j], a[i]
 	}
@@ -19,19 +19,52 @@ func Shuffle(a []*Product) []*Product {
 	return a
 }
 
-func defaultMakeLunch(menu *Menu) []*Product {
+func randomProduct(a []*Product) (*Product, bool) {
+	if n := len(a); n != 0 {
+		r := rand.Intn(n)
+		return a[r], true
+	}
+	return nil, false
+}
+
+func MakeLunchByRandom(menu *Menu) []*Product {
 	res := make([]*Product, 0, 3)
-	a := Shuffle(menu.Appeteazers)
+	if p, ok := randomProduct(menu.Appeteazers); ok {
+		res = append(res, p)
+	}
+	if p, ok := randomProduct(menu.Mains); ok {
+		res = append(res, p)
+	}
+	if p, ok := randomProduct(menu.Deserts); ok {
+		res = append(res, p)
+	}
+	return res
+}
+
+func MakeLunchByShuffle(menu *Menu) []*Product {
+	res := make([]*Product, 0, 3)
+	a := shuffle(menu.Appeteazers)
 	res = append(res, a[:1]...)
-	m := Shuffle(menu.Mains)
+	m := shuffle(menu.Mains)
 	res = append(res, m[:1]...)
-	d := Shuffle(menu.Deserts)
+	d := shuffle(menu.Deserts)
 	res = append(res, d[:1]...)
 	return res
 }
 
 func defaultCrawler(config RestaurantConfig) RestaurantCrawler {
-	filter := func(sID int64) productFilter { return func(p *Product) bool { return p.SectionID == sID } }
+	filter := func(sID []int64) productFilter {
+
+		mapS := make(map[int64]bool)
+		for _, id := range sID {
+			mapS[id] = true
+		}
+
+		return func(p *Product) bool {
+			_, found := mapS[p.SectionID]
+			return found
+		}
+	}
 	f := func(cookies []*http.Cookie) (*Menu, error) {
 		products, err := crawlProducts(cookies, config.URL)
 		if err != nil {

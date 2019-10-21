@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -21,7 +22,7 @@ type lunchChan chan restaurantLunch
 
 var (
 	cf           caserola.Config
-	restaurants  = map[string]caserola.Restaurant{"rawdiacorp": &caserola.Rawdiacorp{}}
+	restaurants  = map[string]caserola.Restaurant{"saladrevolution": &caserola.Saladrevolution{}, "rawdiacorp": &caserola.Rawdiacorp{}}
 	clients      = make(map[string]cookieChan)
 	lunchFeed    = make(lunchChan, len(restaurants))
 	placeOder    = make(chan bool)
@@ -30,6 +31,7 @@ var (
 )
 
 func main() {
+	go printer()
 	r, err := os.Open("config.json")
 	defer r.Close()
 	if err != nil {
@@ -38,7 +40,7 @@ func main() {
 	json.NewDecoder(r).Decode(&cf)
 
 	if _, found := restaurants[cf.Restaurant]; !found {
-		messages <- fmt.Sprintf("Sorry! You're preferred restaurant is not yet implemented!\n")
+		fmt.Println("Sorry! You're preferred restaurant is not yet implemented!")
 		os.Exit(0)
 	}
 
@@ -50,26 +52,28 @@ func main() {
 
 	go spinner(100 * time.Millisecond)
 	go printer()
+	go areYouAlive()
 
 	off := []int{1, 1, 1, 1, 1, 3, 2}
 	for {
+		messages <- fmt.Sprintf("-----------------------------")
 		n := time.Now().UTC()
-		triggerTime := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], 10, 30, 0, 0, n.Location())
+		triggerTime := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], cf.UtcH, cf.UtcM, 0, 0, n.Location())
 		untilTomorrow := triggerTime.Sub(n)
 
 		if d := yearDayOrder[n.YearDay()]; d == 1 {
-			messages <- fmt.Sprintf("I ordered today, so I go to sleep until tomorrow!\n")
+			messages <- fmt.Sprintf("You have lunch for today, so I go to sleep until tomorrow!")
 			time.Sleep(untilTomorrow)
 		}
 
 		if d := n.Weekday(); d == 6 || d == 0 {
-			messages <- fmt.Sprintf("Is weekend I go to sleep until Monday!\n")
+			messages <- fmt.Sprintf("Is weekend, so I will go to sleep until Monday!")
 			time.Sleep(untilTomorrow)
 		}
 
-		if n.Hour() >= 10 && n.Minute() >= 30 {
-			messages <- fmt.Sprintf("Time to order!")
-			go loginMe()
+		if n.Hour() >= cf.UtcH && n.Minute() >= cf.UtcM {
+			messages <- fmt.Sprintf("Time to order:%v!", time.Now().Format("15:04:05"))
+			go loginAsMe()
 			go checkMyOrders()
 			for key := range restaurants {
 				go buildRestaurant(key)
@@ -80,25 +84,28 @@ func main() {
 		time.Sleep(5 * time.Minute)
 	}
 }
+
 func printer() {
 	for msg := range messages {
 		fmt.Println(msg)
 	}
 }
+
 func makeMeLunch() {
 	cookies := <-clients["lunch"]
 	do := <-placeOder
-	messages <- fmt.Sprintf("Waiting for the restaurants feed.")
+	messages <- fmt.Sprintf("Waiting for the restaurant feeds.")
 	for lunch := range lunchFeed {
-		messages <- fmt.Sprintf("I got one.")
+		messages <- fmt.Sprintf("I got the feed for:%s", lunch.restaurantKey)
 		if do && lunch.restaurantKey == cf.Restaurant {
-			messages <- fmt.Sprintf("Its your favorite one. I'm ordering.")
+			messages <- fmt.Sprintf("It's your favorite one. I'm ordering.")
 			if ok, _ := caserola.PlaceOrder(lunch.products, cookies); ok {
-				messages <- fmt.Sprintf("w00t w00t w00t w00t! Your lunch is set! Enjoy!:)\n")
+				messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)\n")
 				yearDayOrder[time.Now().UTC().YearDay()] = 1
 			}
 		}
 	}
+	messages <- fmt.Sprintf("%v", cookies)
 }
 
 func buildRestaurant(key string) {
@@ -106,8 +113,9 @@ func buildRestaurant(key string) {
 	messages <- fmt.Sprintf("Building restaurant: %s", key)
 	menu, err := restaurants[key].FeedMenu(cookies)
 	if err != nil {
-		messages <- fmt.Sprintf("Oops! I could not read the restaurant:{%s} menu so I will not place any today :(\n", key)
+		messages <- fmt.Sprintf("Oops! I could not read the restaurant:{%s} menu so I will not place any today :(", key)
 	}
+	messages <- fmt.Sprintf("Restaurant:%s has %d-Appeteazers, %d-Mains and %d-Deserts", key, len(menu.Appeteazers), len(menu.Mains), len(menu.Deserts))
 	lunch := restaurants[key].MakeLunch(menu)
 	lunchFeed <- restaurantLunch{key, lunch}
 }
@@ -116,11 +124,11 @@ func checkMyOrders() {
 	cookies := <-clients["history"]
 	orders, err := caserola.FeedOrders(cookies)
 	if err != nil {
-		messages <- fmt.Sprintf("Oops! I could not read the orders so I will not place any today :(\n")
+		messages <- fmt.Sprintf("Oops! I could not read the orders so I will not place any today :(")
 		placeOder <- false
 	} else {
 		if orders.DidIOrderToday() {
-			messages <- fmt.Sprintf("I see you've already ordered. Job well done!\n")
+			messages <- fmt.Sprintf("I see you've already ordered. Job well done!")
 			yearDayOrder[time.Now().UTC().YearDay()] = 1
 			placeOder <- false
 		} else {
@@ -129,7 +137,8 @@ func checkMyOrders() {
 		}
 	}
 }
-func loginMe() {
+
+func loginAsMe() {
 	loginStr := fmt.Sprintf("email=%s&password=%s", cf.Email, cf.Pwd)
 
 	client := &http.Client{}
@@ -157,5 +166,12 @@ func spinner(delay time.Duration) {
 			fmt.Printf("\r%c", r)
 			time.Sleep(delay)
 		}
+	}
+}
+
+func areYouAlive() {
+	input := bufio.NewScanner(os.Stdin)
+	for input.Scan() {
+		messages <- fmt.Sprintf("I'm alive and waiting for next time to order!")
 	}
 }
