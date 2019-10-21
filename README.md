@@ -20,7 +20,7 @@ Restaurants available for selection:
 - rawdiacorp
 - saladrevolution
 
-New restaurant will be added in the future versions.
+New restaurants will be added in the future versions.
 
 ## When will order?
 Every day, except weekends, at 10:30 if you did not order already
