@@ -13,6 +13,8 @@ import (
 )
 
 //!-
+const loginURL = "https://corporate.caserola.ro/api/login"
+
 type cookieChan chan []*http.Cookie
 type restaurantLunch struct {
 	restaurantKey string
@@ -38,6 +40,7 @@ func main() {
 		panic(err)
 	}
 	json.NewDecoder(r).Decode(&cf)
+	fmt.Printf("Time is: %v & %v", cf.GetUtcH(), cf.GetUtcM())
 
 	if _, found := restaurants[cf.Restaurant]; !found {
 		fmt.Println("Sorry! You're preferred restaurant is not yet implemented!")
@@ -58,7 +61,7 @@ func main() {
 	for {
 		messages <- fmt.Sprintf("-----------------------------")
 		n := time.Now().UTC()
-		triggerTime := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], cf.UtcH, cf.UtcM, 0, 0, n.Location())
+		triggerTime := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], cf.GetUtcH(), cf.GetUtcM(), 0, 0, n.Location())
 		untilTomorrow := triggerTime.Sub(n)
 
 		if d := yearDayOrder[n.YearDay()]; d == 1 {
@@ -71,7 +74,7 @@ func main() {
 			time.Sleep(untilTomorrow)
 		}
 
-		if n.Hour() >= cf.UtcH && n.Minute() >= cf.UtcM {
+		if n.Hour() >= cf.GetUtcH() && n.Minute() >= cf.GetUtcM() {
 			messages <- fmt.Sprintf("Time to order:%v!", time.Now().Format("15:04:05"))
 			go loginAsMe()
 			go checkMyOrders()
@@ -105,7 +108,6 @@ func makeMeLunch() {
 			}
 		}
 	}
-	messages <- fmt.Sprintf("%v", cookies)
 }
 
 func buildRestaurant(key string) {
@@ -143,7 +145,7 @@ func loginAsMe() {
 
 	client := &http.Client{}
 	requestBody := bytes.NewBufferString(loginStr)
-	req, _ := http.NewRequest("POST", "https://corporate.caserola.ro/api/login", requestBody)
+	req, _ := http.NewRequest("POST", loginURL, requestBody)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	resp, err := client.Do(req)
 	if err != nil {

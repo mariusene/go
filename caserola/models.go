@@ -3,14 +3,35 @@
 
 package caserola
 
-import "time"
+import (
+	"strconv"
+	"strings"
+	"time"
+)
 
 type Config struct {
 	Email      string `json:"email"`
 	Pwd        string `json:"pwd"`
 	Restaurant string `json:"restaurant"`
-	UtcH       int    `json:"utcH"`
-	UtcM       int    `json:"utcT"`
+	utcHHmm    string `json:"uctHH:mm"`
+}
+
+func (cf *Config) GetUtcH() int {
+	return cf.getUtcHHmm(0, 7)
+}
+func (cf *Config) GetUtcM() int {
+	return cf.getUtcHHmm(1, 30)
+}
+
+func (cf *Config) getUtcHHmm(idx, defaultV int) int {
+	s := strings.Split(cf.utcHHmm, ":")
+	if len(s) == idx {
+		return defaultV
+	}
+	if h, ok := strconv.Atoi(s[idx]); ok == nil {
+		return h
+	}
+	return defaultV
 }
 
 type OrderFeed struct {

@@ -13,6 +13,7 @@ import (
 type Orders []*Order
 
 const orderHistoryURL = "https://corporate.caserola.ro/api/order/me"
+const orderURL = "https://corporate.caserola.ro/api/order"
 
 func (ors Orders) DidIOrderToday() bool {
 	n := time.Now().UTC()
@@ -48,7 +49,7 @@ func PlaceOrder(products []*Product, cookies []*http.Cookie) (bool, error) {
 	buff := strOrder(products)
 	body := bytes.NewBufferString(buff.String())
 	client := &http.Client{}
-	req, _ := http.NewRequest("POST", "https://corporate.caserola.ro/api/order", body)
+	req, _ := http.NewRequest("POST", orderURL, body)
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
@@ -66,18 +67,11 @@ func PlaceOrder(products []*Product, cookies []*http.Cookie) (bool, error) {
 }
 
 func strOrder(products []*Product) bytes.Buffer {
-	// type orderItem struct {
-	// 	p         *caserola.Product
-	// 	delimeter string
-	// }
 	type order struct {
 		Items   []*Product
 		LastIdx int
 	}
-	// var ps []orderItem
-	// for idx, p := range products {
-	// 	ps = append(ps, orderItem{p, idx == len(products) -1 ? ",": "."})
-	// }
+
 	todaysOrder := order{products, len(products) - 1}
 	data, err := ioutil.ReadFile("order.template")
 	orderTpl := template.Must(template.New("order").Delims("(", ")").Parse(string(data)))
