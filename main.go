@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"lunch/caserola"
@@ -16,18 +17,21 @@ import (
 const loginURL = "https://corporate.caserola.ro/api/login"
 
 type cookieChan chan []*http.Cookie
-type restaurantLunch struct {
+
+type restaurantFeed struct {
 	restaurantKey string
 	products      []*caserola.Product
+	err           error
 }
-type lunchChan chan restaurantLunch
+type lunchChan chan restaurantFeed
 
 var (
 	cf           caserola.Config
+	wg           sync.WaitGroup
 	restaurants  = map[string]caserola.Restaurant{"saladrevolution": &caserola.Saladrevolution{}, "rawdiacorp": &caserola.Rawdiacorp{}}
 	clients      = make(map[string]cookieChan)
 	lunchFeed    = make(lunchChan, len(restaurants))
-	placeOder    = make(chan bool)
+	placeOder    = make(chan bool, 1)
 	yearDayOrder [366]int
 	messages     = make(chan string, 100)
 )
@@ -40,52 +44,77 @@ func main() {
 		panic(err)
 	}
 	json.NewDecoder(r).Decode(&cf)
-	fmt.Printf("Time is: %v & %v", cf.GetUtcH(), cf.GetUtcM())
 
 	if _, found := restaurants[cf.Restaurant]; !found {
 		fmt.Println("Sorry! You're preferred restaurant is not yet implemented!")
 		os.Exit(0)
 	}
 
-	clients["history"] = make(cookieChan)
-	clients["lunch"] = make(cookieChan)
+	clients["history"] = make(cookieChan, 1)
+	clients["lunch"] = make(cookieChan, 1)
 	for key := range restaurants {
-		clients[key] = make(cookieChan)
+		clients[key] = make(cookieChan, 1)
 	}
 
 	go spinner(100 * time.Millisecond)
 	go printer()
 	go areYouAlive()
 
-	off := []int{1, 1, 1, 1, 1, 3, 2}
 	for {
 		messages <- fmt.Sprintf("-----------------------------")
-		n := time.Now().UTC()
-		triggerTime := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], cf.GetUtcH(), cf.GetUtcM(), 0, 0, n.Location())
-		untilTomorrow := triggerTime.Sub(n)
 
-		if d := yearDayOrder[n.YearDay()]; d == 1 {
-			messages <- fmt.Sprintf("You have lunch for today, so I go to sleep until tomorrow!")
-			time.Sleep(untilTomorrow)
-		}
+		go loginAsMe()
+		wg.Add(1)
+		go checkMyOrders()
 
-		if d := n.Weekday(); d == 6 || d == 0 {
-			messages <- fmt.Sprintf("Is weekend, so I will go to sleep until Monday!")
-			time.Sleep(untilTomorrow)
-		}
-
-		if n.Hour() >= cf.GetUtcH() && n.Minute() >= cf.GetUtcM() {
+		if timeToOrder() {
 			messages <- fmt.Sprintf("Time to order:%v!", time.Now().Format("15:04:05"))
-			go loginAsMe()
-			go checkMyOrders()
 			for key := range restaurants {
 				go buildRestaurant(key)
 			}
+			wg.Add(1)
 			go makeMeLunch()
 		}
 
+		wg.Wait()
+		sleepAWhile()
+
 		time.Sleep(5 * time.Minute)
 	}
+}
+
+func timeToOrder() bool {
+	n := time.Now().UTC()
+	return n.Hour() > cf.GetUtcH() || (n.Hour() == cf.GetUtcH() && n.Minute() >= cf.GetUtcM())
+}
+
+func sleepAWhile() {
+
+	off := []int{1, 1, 1, 1, 1, 3, 2}
+	n := time.Now().UTC()
+	tomorrowTo := time.Date(n.Year(), n.Month(), n.Day()+off[int(n.Weekday())], cf.GetUtcH(), cf.GetUtcM(), 0, 0, n.Location())
+	untilTomorrowTo := tomorrowTo.Sub(n)
+
+	if d := yearDayOrder[n.YearDay()]; d == 1 {
+		messages <- fmt.Sprintf("You have lunch for today, so I go to sleep until tomorrow!")
+		time.Sleep(untilTomorrowTo)
+		return
+	}
+
+	if d := n.Weekday(); d == 6 || d == 0 {
+		messages <- fmt.Sprintf("Is weekend, so I will go to sleep until Monday!")
+		time.Sleep(untilTomorrowTo)
+		return
+	}
+
+	if timeToOrder() {
+		return
+	}
+
+	todayTo := time.Date(n.Year(), n.Month(), n.Day(), cf.GetUtcH(), cf.GetUtcM(), 0, 0, n.Location())
+	untilTo := todayTo.Sub(n)
+	messages <- fmt.Sprintf("I will sleep until:%v!", todayTo.Format("15:04:05"))
+	time.Sleep(untilTo)
 }
 
 func printer() {
@@ -95,12 +124,15 @@ func printer() {
 }
 
 func makeMeLunch() {
+	defer wg.Done()
 	cookies := <-clients["lunch"]
 	do := <-placeOder
 	messages <- fmt.Sprintf("Waiting for the restaurant feeds.")
-	for lunch := range lunchFeed {
+
+	for i := 1; i <= len(restaurants); i++ {
+		lunch := <-lunchFeed
 		messages <- fmt.Sprintf("I got the feed for:%s", lunch.restaurantKey)
-		if do && lunch.restaurantKey == cf.Restaurant {
+		if do && lunch.err == nil && lunch.restaurantKey == cf.Restaurant {
 			messages <- fmt.Sprintf("It's your favorite one. I'm ordering.")
 			if ok, _ := caserola.PlaceOrder(lunch.products, cookies); ok {
 				messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)\n")
@@ -116,13 +148,17 @@ func buildRestaurant(key string) {
 	menu, err := restaurants[key].FeedMenu(cookies)
 	if err != nil {
 		messages <- fmt.Sprintf("Oops! I could not read the restaurant:{%s} menu so I will not place any today :(", key)
+		lunchFeed <- restaurantFeed{key, nil, err}
+	} else {
+		messages <- fmt.Sprintf("Restaurant:%s has %d-Appeteazers, %d-Mains and %d-Deserts", key, len(menu.Appeteazers), len(menu.Mains), len(menu.Deserts))
+		lunch := restaurants[key].MakeLunch(menu)
+		lunchFeed <- restaurantFeed{key, lunch, nil}
 	}
-	messages <- fmt.Sprintf("Restaurant:%s has %d-Appeteazers, %d-Mains and %d-Deserts", key, len(menu.Appeteazers), len(menu.Mains), len(menu.Deserts))
-	lunch := restaurants[key].MakeLunch(menu)
-	lunchFeed <- restaurantLunch{key, lunch}
+
 }
 
 func checkMyOrders() {
+	defer wg.Done()
 	cookies := <-clients["history"]
 	orders, err := caserola.FeedOrders(cookies)
 	if err != nil {
