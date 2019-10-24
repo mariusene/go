@@ -60,7 +60,7 @@ func PlaceOrder(products []*Product, cookies []*http.Cookie) (bool, error) {
 		return false, err
 	}
 	defer resp.Body.Close()
-	if resp.Status != "200" {
+	if resp.StatusCode != 200 {
 		return false, nil
 	}
 	return true, nil

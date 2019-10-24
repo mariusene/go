@@ -13,7 +13,7 @@ type Config struct {
 	Email      string `json:"email"`
 	Pwd        string `json:"pwd"`
 	Restaurant string `json:"restaurant"`
-	utcHHmm    string `json:"uctHH:mm"`
+	UtcHHmm    string `json:"uctHH:mm"`
 }
 
 func (cf *Config) GetUtcH() int {
@@ -24,12 +24,13 @@ func (cf *Config) GetUtcM() int {
 }
 
 func (cf *Config) getUtcHHmm(idx, defaultV int) int {
-	s := strings.Split(cf.utcHHmm, ":")
+	s := strings.Split(cf.UtcHHmm, ":")
 	if len(s) == idx {
 		return defaultV
 	}
-	if h, ok := strconv.Atoi(s[idx]); ok == nil {
-		return h
+
+	if v, ok := strconv.Atoi(s[idx]); ok == nil {
+		return v
 	}
 	return defaultV
 }

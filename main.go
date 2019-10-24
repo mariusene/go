@@ -113,7 +113,7 @@ func sleepAWhile() {
 
 	todayTo := time.Date(n.Year(), n.Month(), n.Day(), cf.GetUtcH(), cf.GetUtcM(), 0, 0, n.Location())
 	untilTo := todayTo.Sub(n)
-	messages <- fmt.Sprintf("I will sleep until:%v!", todayTo.Format("15:04:05"))
+	messages <- fmt.Sprintf("I will sleep until:%v!", todayTo.In(time.Now().Location()).Format("15:04:05"))
 	time.Sleep(untilTo)
 }
 
@@ -135,7 +135,7 @@ func makeMeLunch() {
 		if do && lunch.err == nil && lunch.restaurantKey == cf.Restaurant {
 			messages <- fmt.Sprintf("It's your favorite one. I'm ordering.")
 			if ok, _ := caserola.PlaceOrder(lunch.products, cookies); ok {
-				messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)\n")
+				messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)")
 				yearDayOrder[time.Now().UTC().YearDay()] = 1
 			}
 		}
