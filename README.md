@@ -11,8 +11,7 @@ You will have to configure your favorite one.
     "email":"marius.ene@uipath.com",
     "pwd":"*****",
     "restaurant":"rawdiacorp",
-    "utcH":7,
-    "utcT":30
+    "uctHH:mm":"08:30"
 }
 ```
 Restaurants available for selection:
