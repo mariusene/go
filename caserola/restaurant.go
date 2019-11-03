@@ -8,7 +8,7 @@ import (
 type RestaurantCrawler func([]*http.Cookie) (*Menu, error)
 type Restaurant interface {
 	FeedMenu([]*http.Cookie) (*Menu, error)
-	MakeLunch(*Menu) []*Product
+	MakeLunch(*Menu, bool) []*Product
 }
 
 func shuffle(a []*Product) []*Product {
@@ -27,7 +27,7 @@ func randomProduct(a []*Product) (*Product, bool) {
 	return nil, false
 }
 
-func MakeLunchByRandom(menu *Menu) []*Product {
+func MakeLunchByRandom(menu *Menu, noDesert bool) []*Product {
 	res := make([]*Product, 0, 3)
 	if p, ok := randomProduct(menu.Appeteazers); ok {
 		res = append(res, p)
@@ -35,18 +35,24 @@ func MakeLunchByRandom(menu *Menu) []*Product {
 	if p, ok := randomProduct(menu.Mains); ok {
 		res = append(res, p)
 	}
+	if noDesert {
+		return res
+	}
 	if p, ok := randomProduct(menu.Deserts); ok {
 		res = append(res, p)
 	}
 	return res
 }
 
-func MakeLunchByShuffle(menu *Menu) []*Product {
+func MakeLunchByShuffle(menu *Menu, noDesert bool) []*Product {
 	res := make([]*Product, 0, 3)
 	a := shuffle(menu.Appeteazers)
 	res = append(res, a[:1]...)
 	m := shuffle(menu.Mains)
 	res = append(res, m[:1]...)
+	if noDesert {
+		return res
+	}
 	d := shuffle(menu.Deserts)
 	res = append(res, d[:1]...)
 	return res

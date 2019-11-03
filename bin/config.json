@@ -2,5 +2,6 @@
     "email":"marius.ene@uipath.com",
     "pwd":"*****",
     "restaurant":"rawdiacorp",
-    "uctHH:mm":"08:30"
+    "uctHH:mm":"08:30",
+    "noDesert":true
 }

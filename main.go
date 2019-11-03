@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"lunch/caserola"
@@ -38,17 +39,6 @@ var (
 
 func main() {
 	go printer()
-	r, err := os.Open("config.json")
-	defer r.Close()
-	if err != nil {
-		panic(err)
-	}
-	json.NewDecoder(r).Decode(&cf)
-
-	if _, found := restaurants[cf.Restaurant]; !found {
-		fmt.Println("Sorry! You're preferred restaurant is not yet implemented!")
-		os.Exit(0)
-	}
 
 	clients["history"] = make(cookieChan, 1)
 	clients["lunch"] = make(cookieChan, 1)
@@ -62,7 +52,7 @@ func main() {
 
 	for {
 		messages <- fmt.Sprintf("-----------------------------")
-
+		readConfig()
 		go loginAsMe()
 		wg.Add(1)
 		go checkMyOrders()
@@ -134,9 +124,13 @@ func makeMeLunch() {
 		messages <- fmt.Sprintf("I got the feed for:%s", lunch.restaurantKey)
 		if do && lunch.err == nil && lunch.restaurantKey == cf.Restaurant {
 			messages <- fmt.Sprintf("It's your favorite one. I'm ordering.")
-			if ok, _ := caserola.PlaceOrder(lunch.products, cookies); ok {
-				messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)")
-				yearDayOrder[time.Now().UTC().YearDay()] = 1
+			if len(lunch.products) == 0 {
+				messages <- fmt.Sprintf("Oops! There are no products to order! I will not order")
+			} else {
+				if ok, _ := caserola.PlaceOrder(lunch.products, cookies); ok {
+					messages <- fmt.Sprintf("w00t w00t w00t w00t! Check your email. I hope you like what I've ordered for you!;)")
+					yearDayOrder[time.Now().UTC().YearDay()] = 1
+				}
 			}
 		}
 	}
@@ -151,7 +145,7 @@ func buildRestaurant(key string) {
 		lunchFeed <- restaurantFeed{key, nil, err}
 	} else {
 		messages <- fmt.Sprintf("Restaurant:%s has %d-Appeteazers, %d-Mains and %d-Deserts", key, len(menu.Appeteazers), len(menu.Mains), len(menu.Deserts))
-		lunch := restaurants[key].MakeLunch(menu)
+		lunch := restaurants[key].MakeLunch(menu, cf.NoDesert)
 		lunchFeed <- restaurantFeed{key, lunch, nil}
 	}
 
@@ -211,5 +205,23 @@ func areYouAlive() {
 	input := bufio.NewScanner(os.Stdin)
 	for input.Scan() {
 		messages <- fmt.Sprintf("I'm alive and waiting for next time to order!")
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 0, ' ', tabwriter.Debug)
+		fmt.Fprintln(w, "Favorite Restaurant\tYou want desert")
+		fmt.Fprintf(w, "%s\t%v\n", cf.Restaurant, !cf.NoDesert)
+		w.Flush()
+	}
+}
+
+func readConfig() {
+	r, err := os.Open("config.json")
+	defer r.Close()
+	if err != nil {
+		panic(err)
+	}
+	json.NewDecoder(r).Decode(&cf)
+
+	if _, found := restaurants[cf.Restaurant]; !found {
+		fmt.Println("Sorry! You're preferred restaurant is not yet implemented!")
+		os.Exit(0)
 	}
 }

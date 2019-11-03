@@ -13,6 +13,6 @@ func (*Rawdiacorp) FeedMenu(cookies []*http.Cookie) (*Menu, error) {
 	}
 	return defaultCrawler(config)(cookies)
 }
-func (*Rawdiacorp) MakeLunch(menu *Menu) []*Product {
-	return MakeLunchByRandom(menu)
+func (*Rawdiacorp) MakeLunch(menu *Menu, noDesert bool) []*Product {
+	return MakeLunchByRandom(menu, noDesert)
 }

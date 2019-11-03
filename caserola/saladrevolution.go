@@ -13,6 +13,6 @@ func (*Saladrevolution) FeedMenu(cookies []*http.Cookie) (*Menu, error) {
 	}
 	return defaultCrawler(config)(cookies)
 }
-func (*Saladrevolution) MakeLunch(menu *Menu) []*Product {
-	return MakeLunchByRandom(menu)
+func (*Saladrevolution) MakeLunch(menu *Menu, noDesert bool) []*Product {
+	return MakeLunchByRandom(menu, noDesert)
 }

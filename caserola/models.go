@@ -14,6 +14,7 @@ type Config struct {
 	Pwd        string `json:"pwd"`
 	Restaurant string `json:"restaurant"`
 	UtcHHmm    string `json:"uctHH:mm"`
+	NoDesert   bool   `json:"noDesert"`
 }
 
 func (cf *Config) GetUtcH() int {
