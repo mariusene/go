@@ -5,7 +5,16 @@ import (
 	"net/http"
 )
 
+var (
+	capPriceDesert     = 15.00
+	capPriceAppeteazer = 15.00
+	capPriceMain       = 35.00
+)
+
+//RestaurantCrawler ...
 type RestaurantCrawler func([]*http.Cookie) (*Menu, error)
+
+//Restaurant ...
 type Restaurant interface {
 	FeedMenu([]*http.Cookie) (*Menu, error)
 	MakeLunch(*Menu, bool) []*Product
@@ -27,6 +36,7 @@ func randomProduct(a []*Product) (*Product, bool) {
 	return nil, false
 }
 
+//MakeLunchByRandom ...
 func MakeLunchByRandom(menu *Menu, noDesert bool) []*Product {
 	res := make([]*Product, 0, 3)
 	if p, ok := randomProduct(menu.Appeteazers); ok {
@@ -44,6 +54,7 @@ func MakeLunchByRandom(menu *Menu, noDesert bool) []*Product {
 	return res
 }
 
+//MakeLunchByShuffle ...
 func MakeLunchByShuffle(menu *Menu, noDesert bool) []*Product {
 	res := make([]*Product, 0, 3)
 	a := shuffle(menu.Appeteazers)
@@ -59,7 +70,7 @@ func MakeLunchByShuffle(menu *Menu, noDesert bool) []*Product {
 }
 
 func defaultCrawler(config RestaurantConfig) RestaurantCrawler {
-	filter := func(sID []int64) productFilter {
+	sFilter := func(sID []int64) productFilter {
 
 		mapS := make(map[int64]bool)
 		for _, id := range sID {
@@ -71,15 +82,20 @@ func defaultCrawler(config RestaurantConfig) RestaurantCrawler {
 			return found
 		}
 	}
+	capFilter := func(cap float64) productFilter {
+		return func(p *Product) bool {
+			return p.Price <= cap
+		}
+	}
 	f := func(cookies []*http.Cookie) (*Menu, error) {
 		products, err := crawlProducts(cookies, config.URL)
 		if err != nil {
 			return nil, err
 		}
 		res := Menu{
-			Appeteazers: filterProducts(products, filter(config.AppeteazersSectionID)),
-			Mains:       filterProducts(products, filter(config.MainsSectionID)),
-			Deserts:     filterProducts(products, filter(config.DesertsSectionID)),
+			Appeteazers: filterProducts(products, sFilter(config.AppeteazersSectionID), capFilter(capPriceAppeteazer)),
+			Mains:       filterProducts(products, sFilter(config.MainsSectionID), capFilter(capPriceMain)),
+			Deserts:     filterProducts(products, sFilter(config.DesertsSectionID), capFilter(capPriceDesert)),
 		}
 		return &res, nil
 	}

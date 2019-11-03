@@ -1,6 +1,7 @@
 package caserola
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -48,6 +49,9 @@ func findProducts(products []*Product, n *html.Node) []*Product {
 			}
 		}
 		if addMe {
+			if price, err := findPrice(n); err == nil {
+				p.Price = price
+			}
 			products = append(products, &p)
 		}
 	}
@@ -55,6 +59,35 @@ func findProducts(products []*Product, n *html.Node) []*Product {
 		products = findProducts(products, c)
 	}
 	return products
+}
+
+func findNodePrice(n *html.Node) (*html.Node, bool) {
+	if n == nil {
+		return nil, false
+	}
+
+	if n.Type == html.ElementNode && n.Data == "span" {
+		for _, a := range n.Attr {
+			if a.Key == "class" && a.Val == "product-price-number" {
+				return n, true
+			}
+		}
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if pNode, found := findNodePrice(c); found {
+			return pNode, true
+		}
+	}
+
+	return nil, false
+}
+
+func findPrice(n *html.Node) (float64, error) {
+	if nodePrice, found := findNodePrice(n); found {
+		return strconv.ParseFloat(nodePrice.FirstChild.Data, 64)
+	}
+	return 0, errors.New("Price not found")
 }
 
 func filterProducts(products []*Product, filters ...productFilter) []*Product {

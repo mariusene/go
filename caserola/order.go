@@ -10,11 +10,13 @@ import (
 	"time"
 )
 
+//Orders ...
 type Orders []*Order
 
 const orderHistoryURL = "https://corporate.caserola.ro/api/order/me"
 const orderURL = "https://corporate.caserola.ro/api/order"
 
+//DidIOrderToday ...
 func (ors Orders) DidIOrderToday() bool {
 	n := time.Now().UTC()
 	for _, o := range ors {
@@ -25,6 +27,7 @@ func (ors Orders) DidIOrderToday() bool {
 	return false
 }
 
+//FeedOrders ...
 func FeedOrders(cookies []*http.Cookie) (Orders, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", orderHistoryURL, nil)
@@ -45,6 +48,7 @@ func FeedOrders(cookies []*http.Cookie) (Orders, error) {
 	return oh.Items, nil
 }
 
+//PlaceOrder ...
 func PlaceOrder(products []*Product, cookies []*http.Cookie) (bool, error) {
 	buff := strOrder(products)
 	body := bytes.NewBufferString(buff.String())

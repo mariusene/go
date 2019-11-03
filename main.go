@@ -29,7 +29,7 @@ type lunchChan chan restaurantFeed
 var (
 	cf           caserola.Config
 	wg           sync.WaitGroup
-	restaurants  = map[string]caserola.Restaurant{"saladrevolution": &caserola.Saladrevolution{}, "rawdiacorp": &caserola.Rawdiacorp{}}
+	restaurants  = map[string]caserola.Restaurant{"saladrevolution": &caserola.Saladrevolution{}, "rawdiacorp": &caserola.Rawdiacorp{}, "sectorgurmand": &caserola.Sectorgurmand{}}
 	clients      = make(map[string]cookieChan)
 	lunchFeed    = make(lunchChan, len(restaurants))
 	placeOder    = make(chan bool, 1)
@@ -46,7 +46,7 @@ func main() {
 		clients[key] = make(cookieChan, 1)
 	}
 
-	go spinner(100 * time.Millisecond)
+	// go spinner(100 * time.Millisecond)
 	go printer()
 	go areYouAlive()
 
